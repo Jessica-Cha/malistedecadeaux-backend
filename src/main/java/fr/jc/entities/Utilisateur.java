@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.sql.Date;
+import java.util.ArrayList;
+import java.util.List;
 
 
 @Entity
@@ -33,6 +35,12 @@ public class Utilisateur extends PanacheEntityBase {
     @Column(name = "creation_liste")
     private boolean creationListe;
 
+    @Column(name = "id_utilisateur_est_enfant", insertable = false, updatable = false)
+    private Integer idUtilisateurEstEnfant;
+
+    @Column(name = "id_parent", insertable=false, updatable=false)
+    private int idParent;
+
     @ManyToOne
     @JoinColumn(name = "id_role")
     private Role role;
@@ -45,7 +53,12 @@ public class Utilisateur extends PanacheEntityBase {
     @JoinColumn(name = "id_compte_utilisateur")
     private CompteUtilisateur compteUtilisateur;
 
-    @Column(name = "id_utilisateur_est_enfant")
-    private int idUtilisateurEstEnfant;
+    @ManyToOne
+    @JoinColumn(name = "id_parent")
+    private Utilisateur parent;
+
+    //relation bidirectionnelle du parent vers ses enfants
+    @OneToMany(mappedBy = "parent")
+    private List<Utilisateur> enfants = new ArrayList<>();
 
 }
