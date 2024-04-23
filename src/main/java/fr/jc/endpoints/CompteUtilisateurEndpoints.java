@@ -72,16 +72,22 @@ public class CompteUtilisateurEndpoints {
         }
         String hashedPassword = PasswordHasher.hashPassword(compteUtilisateur.getMotDePasse());
         compteUtilisateur.setMotDePasse(hashedPassword);
+
         LocalDateTime currentDateTime = compteUtilisateurRepository.getCurrentDateTime();
         compteUtilisateur.setDateCreationCompte(Timestamp.valueOf(currentDateTime).toLocalDateTime());
+
         // Récupérer l'adresse IP de la requête
         String ipConnexion = request.getRemoteAddr();
+
         // Assigner l'adresse IP au compte utilisateur
         compteUtilisateur.setIpConnexion(ipConnexion);
+
         // Récupérer le navigateur de la requête
         String navigateur = request.getHeader("User-Agent");
+
         // Assigner le navigateur au compte utilisateur
         compteUtilisateur.setNavigateur(navigateur);
+
         compteUtilisateurRepository.persist(compteUtilisateur);
         return Response.created(URI.create("/comptes_utilisateurs/" + compteUtilisateur.getIdCompteUtilisateur())).build();
     }
@@ -92,19 +98,40 @@ public class CompteUtilisateurEndpoints {
     @APIResponse(responseCode = "200", description = "Ok, user account update")
     @APIResponse(responseCode = "204", description = "No user account update!")
     @Path("/{idCompteUtilisateur}")
-    public Response updateCompteUtilisateur(@PathParam("idCompteUtilisateur") Integer idCompteUtilisateur, CompteUtilisateur updatedCompteUtilisateur){
+    public Response updateCompteUtilisateur(@PathParam("idCompteUtilisateur") Integer idCompteUtilisateur, CompteUtilisateur updatedCompteUtilisateur, @Context HttpServletRequest request){
         CompteUtilisateur compteUtilisateur = compteUtilisateurRepository.findById(idCompteUtilisateur);
         if(compteUtilisateur != null) {
+            // Valeurs à mettre à jour
             compteUtilisateur.setLogin(updatedCompteUtilisateur.getLogin());
             compteUtilisateur.setMotDePasse(updatedCompteUtilisateur.getMotDePasse());
-            compteUtilisateur.setDateCreationCompte(updatedCompteUtilisateur.getDateCreationCompte());
             compteUtilisateur.setIpConnexion(updatedCompteUtilisateur.getIpConnexion());
             compteUtilisateur.setNavigateur(updatedCompteUtilisateur.getNavigateur());
 
-            compteUtilisateurRepository.persist(compteUtilisateur);
+            // Vérification et mise à jour du mot de passe
+            String newPassword = updatedCompteUtilisateur.getMotDePasse();
+            if(newPassword != null && !newPassword.isEmpty()) {
+                String hashedPassword = PasswordHasher.hashPassword(newPassword);
+                compteUtilisateur.setMotDePasse(hashedPassword);
+            }
+
+            // Mise à jour de la date de modification
+            LocalDateTime currentDateTime = compteUtilisateurRepository.getCurrentDateTime();
+            compteUtilisateur.setDateModificationCompte(Timestamp.valueOf(currentDateTime).toLocalDateTime());
+
+            // Mise à jour de l'adresse IP de connexion
+            String ipConnexion = request.getRemoteAddr();
+            compteUtilisateur.setIpConnexion(ipConnexion);
+
+            // Mise à jour du navigateur
+            String navigateur = request.getHeader("User-Agent");
+            compteUtilisateur.setNavigateur(navigateur);
+
+            compteUtilisateurRepository.persistAndFlush(compteUtilisateur);
             return Response.ok(compteUtilisateur).build();
         } else {
-            return Response.noContent().build();
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("Compte utilisateur non trouvé.")
+                    .build();
         }
     }
 
@@ -118,7 +145,6 @@ public class CompteUtilisateurEndpoints {
         CompteUtilisateur compteUtilisateur = compteUtilisateurRepository.findById(idCompteUtilisateur);
         if (compteUtilisateur != null) {
             compteUtilisateur.delete();
-
             return Response.ok(compteUtilisateur).build();
         } else {
             return Response.noContent().build();

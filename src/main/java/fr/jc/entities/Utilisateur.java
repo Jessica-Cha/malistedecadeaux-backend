@@ -1,5 +1,7 @@
 package fr.jc.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -38,8 +40,8 @@ public class Utilisateur extends PanacheEntityBase {
     @Column(name = "id_utilisateur_est_enfant", insertable = false, updatable = false)
     private Integer idUtilisateurEstEnfant;
 
-    @Column(name = "id_parent", insertable=false, updatable=false)
-    private int idParent;
+    @Column(name = "id_parent")
+    private Integer idParent;
 
     @ManyToOne
     @JoinColumn(name = "id_role")
@@ -54,11 +56,13 @@ public class Utilisateur extends PanacheEntityBase {
     private CompteUtilisateur compteUtilisateur;
 
     @ManyToOne
-    @JoinColumn(name = "id_parent")
+    @JoinColumn(name = "id_parent", insertable = false, updatable = false)
+    @JsonBackReference // Indique que cette propriété est la propriété inverse de la relation parent-enfant
     private Utilisateur parent;
 
     //relation bidirectionnelle du parent vers ses enfants
-    @OneToMany(mappedBy = "parent")
+    @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY) // Pour charger uniquement quand je le demande
+    @JsonIgnoreProperties("enfants") // Ignorer la sérialisation de la liste des enfants
     private List<Utilisateur> enfants = new ArrayList<>();
 
 }

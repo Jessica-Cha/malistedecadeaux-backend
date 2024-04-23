@@ -1,6 +1,9 @@
 package fr.jc.endpoints;
 
 
+import fr.jc.dto.UtilisateurDTO;
+import fr.jc.entities.CompteUtilisateur;
+import fr.jc.mapper.UtilisateurMapper;
 import fr.jc.entities.Utilisateur;
 import fr.jc.repositories.UtilisateurRepository;
 import jakarta.inject.Inject;
@@ -15,6 +18,7 @@ import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
 @Path("/utilisateurs")
@@ -23,6 +27,8 @@ import java.util.List;
 @Tag(name = "UTILISATEUR", description = "Afficher la liste des utilisateurs")
 //@RolesAllowed("admin")
 public class UtilisateurEndpoints {
+
+
     @Inject
     UtilisateurRepository utilisateurRepository;
 
@@ -35,7 +41,14 @@ public class UtilisateurEndpoints {
         if (utilisateurs.isEmpty()) {
             return Response.noContent().build();
         } else {
-            return Response.ok(utilisateurs).build();
+            List<UtilisateurDTO> utilisateursDTO = new ArrayList<>();
+            // Initialiser les listes d'enfants pour éviter les erreurs de sérialisation
+            for (Utilisateur utilisateur : utilisateurs) {
+                utilisateur.getEnfants().size(); // Initialiser la liste d'enfants
+                UtilisateurDTO utilisateurDTO = UtilisateurMapper.mapUtilisateurToDTO(utilisateur);
+                utilisateursDTO.add(utilisateurDTO);
+            }
+            return Response.ok(utilisateursDTO).build();
         }
     }
 
@@ -47,7 +60,10 @@ public class UtilisateurEndpoints {
     public Response getUtilisateur(@PathParam("idUtilisateur") Integer idUtilisateur) {
         Utilisateur utilisateur = utilisateurRepository.findById(idUtilisateur);
         if (utilisateur != null) {
-            return Response.ok(utilisateur).build();
+            // Mapper l'utilisateur vers le DTO
+            UtilisateurDTO utilisateurDTO = UtilisateurMapper.mapUtilisateurToDTO(utilisateur);
+            // Retourner le DTO depuis l'API REST
+            return Response.ok(utilisateurDTO).build();
         } else {
             return Response.noContent().build();
         }
@@ -58,16 +74,57 @@ public class UtilisateurEndpoints {
     @Operation(summary = "Création utilisateur", description = "post one user")
     @APIResponse(responseCode = "200", description = "Ok, user post")
     @APIResponse(responseCode = "204", description = "No user post!")
-    public Response createUtilisateur(Utilisateur utilisateur, @Context HttpServletRequest request){
-        utilisateur.getNom();
-        utilisateur.getPrenom();
-        utilisateur.getDateNaissance();
-        utilisateur.getTelephone();
-        utilisateur.isCreationListe();
-
+    public Response createUtilisateur(Utilisateur utilisateur, @Context HttpServletRequest request) {
         utilisateurRepository.persist(utilisateur);
-       return Response.created(URI.create("/utilisateurs/" + utilisateur.getIdUtilisateur())).build();
+
+        // Récupérer l'idUtilisateur
+        int idUtilisateur = utilisateur.getIdUtilisateur();
+
+        // Vérifier si l'utilisateur est parent
+        if (utilisateur.isCreationListe()) {
+            // Mettre à jour l'idParent avec l'idUtilisateur
+            utilisateur.setIdParent(idUtilisateur);
+
+            // Persister à nouveau l'utilisateur avec la mise à jour de idParent
+            utilisateurRepository.persist(utilisateur);
+        }
+        return Response.created(URI.create("/utilisateurs/" + utilisateur.getIdUtilisateur())).build();
     }
+
+  /*  @POST
+    @Transactional
+    @Operation(summary = "Création utilisateur enfant", description = "Crée un nouvel utilisateur enfant pour le parent connecté")
+    @APIResponse(responseCode = "200", description = "Ok, utilisateur enfant créé")
+    @APIResponse(responseCode = "400", description = "Bad Request")
+    public Response createUtilisateurEnfant(Utilisateur utilisateurEnfant, @Context HttpServletRequest request) {
+        // Authentification : Vérifier si le parent est connecté
+        CompteUtilisateur compteUtilisateurParent = getCurrentUser(request);
+        if (compteUtilisateurParent == null) {
+            return Response.status(Response.Status.UNAUTHORIZED).build();
+        }
+
+        // Récupération du parent à partir de son compte utilisateur
+        Utilisateur parent = utilisateurRepository.findByCompteUtilisateur(compteUtilisateurParent);
+        if (parent == null) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Parent not found").build();
+        }
+
+        // Attribution du parent à l'utilisateur enfant
+        utilisateurEnfant.setParent(parent);
+
+        // Enregistrement en base de données
+        utilisateurRepository.persist(utilisateurEnfant);
+
+        return Response.ok("Utilisateur enfant créé avec succès").build();
+    }
+
+    // Méthode utilitaire pour récupérer le compte utilisateur actuellement connecté
+    private CompteUtilisateur getCurrentUser(HttpServletRequest request) {
+        // Implémentez la logique pour récupérer le compte utilisateur actuellement connecté à partir de la requête HTTP
+    }*/
+
+
+
 
     @PUT
     @Transactional
@@ -75,18 +132,21 @@ public class UtilisateurEndpoints {
     @APIResponse(responseCode = "200", description = "Ok, user update")
     @APIResponse(responseCode = "204", description = "No user update!")
     @Path("/{idUtilisateur}")
-    public Response updateUtilisateur(@PathParam("idUtilisateur") Integer idUtilisateur, Utilisateur updatedUtilisateur){
+    public Response updateUtilisateur(@PathParam("idUtilisateur") Integer idUtilisateur, UtilisateurDTO updatedUtilisateurDTO){
         Utilisateur utilisateur = utilisateurRepository.findById(idUtilisateur);
         if(utilisateur != null) {
-            utilisateur.setNom(updatedUtilisateur.getNom());
-            utilisateur.setPrenom(updatedUtilisateur.getPrenom());
-            utilisateur.setDateNaissance(updatedUtilisateur.getDateNaissance());
-            utilisateur.setTelephone(updatedUtilisateur.getTelephone());
-            utilisateur.setCreationListe(updatedUtilisateur.isCreationListe());
-            utilisateur.setIdUtilisateurEstEnfant(updatedUtilisateur.getIdUtilisateurEstEnfant());
+            utilisateur.setNom(updatedUtilisateurDTO.getNom());
+            utilisateur.setPrenom(updatedUtilisateurDTO.getPrenom());
+            utilisateur.setDateNaissance(updatedUtilisateurDTO.getDateNaissance());
+            utilisateur.setTelephone(updatedUtilisateurDTO.getTelephone());
+            utilisateur.setCreationListe(updatedUtilisateurDTO.isCreationListe());
+
 
             utilisateurRepository.persist(utilisateur);
-            return Response.ok(utilisateur).build();
+            // Construire un objet DTO contenant uniquement les informations mises à jour de l'utilisateur
+            UtilisateurDTO updatedDTO = UtilisateurMapper.mapUtilisateurToDTO(utilisateur);
+
+            return Response.ok(updatedDTO).build();
         } else {
             return Response.noContent().build();
         }
@@ -101,9 +161,9 @@ public class UtilisateurEndpoints {
     public Response deleteUtilisateur(@PathParam("idUtilisateur") Integer idUtilisateur) {
         Utilisateur utilisateur = utilisateurRepository.findById(idUtilisateur);
         if (utilisateur != null) {
-            utilisateur.delete();
+            utilisateurRepository.delete(utilisateur);
 
-            return Response.ok(utilisateur).build();
+            return Response.ok().build();
         } else {
             return Response.noContent().build();
         }

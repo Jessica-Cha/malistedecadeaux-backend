@@ -32,4 +32,7 @@ public class CompteUtilisateur extends PanacheEntityBase {
     @Column(name = "navigateur")
     private String navigateur;
 
+    @Column(name = "date_modification_compte")
+    private LocalDateTime dateModificationCompte;
+
 }
